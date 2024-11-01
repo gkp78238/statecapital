@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/MainFragment">
+
+    <fragment
+        android:id="@+id/MainFragment"
+        android:name="edu.uga.cs.superfinalstatecapital.MainFragment"
+        android:label="@string/app_name"
+        tools:layout="@layout/fragment_main">
+        <action
+            android:id="@+id/action_MainFragment_to_QuizFragment"
+            app:destination="@id/QuizFragment" />
+        <action
+            android:id="@+id/action_MainFragment_to_ResultsFragment"
+            app:destination="@id/ResultsFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/QuizFragment"
+        android:name="edu.uga.cs.superfinalstatecapital.QuizFragment"
+        android:label="Quiz"
+        tools:layout="@layout/fragment_quiz">
+        <action
+            android:id="@+id/action_QuizFragment_to_ResultsFragment"
+            app:destination="@id/ResultsFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/ResultsFragment"
+        android:name="edu.uga.cs.superfinalstatecapital.ResultsFragment"
+        android:label="Results"
+        tools:layout="@layout/fragment_results">
+        <action
+            android:id="@+id/action_ResultsFragment_to_MainFragment"
+            app:destination="@id/MainFragment" />
+    </fragment>
+
+</navigation>
