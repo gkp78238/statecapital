@@ -19,6 +19,7 @@ import java.util.Locale;
  */
 public class QuizData {
     public static final String DEBUG_TAG = "QuizData";
+    private static final int QUESTIONS_PER_QUIZ = 6;
 
     // Database instance and helper
     private SQLiteDatabase db;
@@ -238,10 +239,17 @@ public class QuizData {
         Cursor cursor = null;
 
         try {
+            Log.d(DEBUG_TAG, "Checking for quiz in progress...");
+
+            // Modified query to find ONLY truly interrupted quizzes
+            String selection = StateQuizDBHelper.QUIZ_COLUMN_QUESTIONS_ANSWERED + " > 0 AND " +
+                    StateQuizDBHelper.QUIZ_COLUMN_QUESTIONS_ANSWERED + " < " + QUESTIONS_PER_QUIZ +
+                    " AND " + StateQuizDBHelper.QUIZ_COLUMN_SCORE + " >= 0"; // Add this condition
+
             cursor = db.query(
                     StateQuizDBHelper.TABLE_QUIZZES,
                     null,
-                    StateQuizDBHelper.QUIZ_COLUMN_QUESTIONS_ANSWERED + " < 6",
+                    selection,  // Modified selection criteria
                     null,
                     null,
                     null,
@@ -260,8 +268,14 @@ public class QuizData {
                 int questionsAnswered = questionsIndex >= 0 ? cursor.getInt(questionsIndex) : 0;
                 String date = dateIndex >= 0 ? cursor.getString(dateIndex) : "";
 
-                quiz = new Quiz(quizId, date, score, questionsAnswered);
+                // Additional verification that we only return actually interrupted quizzes
+                if (questionsAnswered > 0 && questionsAnswered < QUESTIONS_PER_QUIZ) {
+                    quiz = new Quiz(quizId, date, score, questionsAnswered);
+                    Log.d(DEBUG_TAG, "Found interrupted quiz: ID=" + quizId +
+                            ", Questions=" + questionsAnswered + "/" + QUESTIONS_PER_QUIZ);
+                }
             }
+            Log.d(DEBUG_TAG, "Quiz in progress check complete");
         } catch (Exception e) {
             Log.e(DEBUG_TAG, "Error getting quiz in progress: " + e.getMessage());
         } finally {
@@ -283,13 +297,17 @@ public class QuizData {
         Cursor cursor = null;
 
         try {
-            String query = "SELECT s.* FROM " + StateQuizDBHelper.TABLE_STATES + " s " +
+            String query = "SELECT DISTINCT s.* FROM " + StateQuizDBHelper.TABLE_STATES + " s " +
                     "JOIN " + StateQuizDBHelper.TABLE_QUIZ_QUESTIONS + " q " +
                     "ON s." + StateQuizDBHelper.STATES_COLUMN_ID + " = q." +
                     StateQuizDBHelper.QUESTION_COLUMN_STATE_ID +
-                    " WHERE q." + StateQuizDBHelper.QUESTION_COLUMN_QUIZ_ID + " = ?";
+                    " WHERE q." + StateQuizDBHelper.QUESTION_COLUMN_QUIZ_ID + " = ? " +
+                    "ORDER BY q." + StateQuizDBHelper.QUESTION_COLUMN_ID;  // Fixed this line
 
             cursor = db.rawQuery(query, new String[]{String.valueOf(quizId)});
+
+            Log.d(DEBUG_TAG, "Getting quiz states for quiz ID: " + quizId);
+            Log.d(DEBUG_TAG, "Cursor count: " + (cursor != null ? cursor.getCount() : "null"));
 
             if (cursor != null && cursor.getCount() > 0) {
                 while (cursor.moveToNext()) {
@@ -317,6 +335,7 @@ public class QuizData {
             }
         }
 
+        Log.d(DEBUG_TAG, "Retrieved " + states.size() + " states for quiz");
         return states;
     }
 
@@ -341,5 +360,24 @@ public class QuizData {
         public String getDate() { return date; }
         public int getScore() { return score; }
         public int getQuestionsAnswered() { return questionsAnswered; }
+    }
+
+
+    // Add this method after getQuizInProgress()
+    public void saveQuizState(long quizId, int currentQuestion, int score, String selectedAnswer) {
+        ContentValues values = new ContentValues();
+        values.put(StateQuizDBHelper.QUIZ_COLUMN_QUESTIONS_ANSWERED, currentQuestion);
+        values.put(StateQuizDBHelper.QUIZ_COLUMN_SCORE, score);
+        values.put(StateQuizDBHelper.QUIZ_COLUMN_LAST_ANSWER, selectedAnswer);
+
+        String whereClause = StateQuizDBHelper.QUIZ_COLUMN_ID + "=?";
+        String[] whereArgs = {String.valueOf(quizId)};
+
+        try {
+            db.update(StateQuizDBHelper.TABLE_QUIZZES, values, whereClause, whereArgs);
+            Log.d(DEBUG_TAG, "Saved quiz state: Question " + currentQuestion + ", Score " + score);
+        } catch (Exception e) {
+            Log.e(DEBUG_TAG, "Error saving quiz state: " + e.getMessage());
+        }
     }
 }
